@@ -1,0 +1,65 @@
+.landing-page {
+  min-height: 100vh;
+  width: 100vw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.landing-content {
+  background: white;
+  padding: 3rem 2rem;
+  border-radius: 2rem;
+  box-shadow: 0 10px 40px rgba(102, 126, 234, 0.15);
+  text-align: center;
+  max-width: 400px;
+  width: 100%;
+}
+
+.landing-logo {
+  margin-bottom: 1.5rem;
+}
+
+.landing-logo-icon {
+  font-size: 3rem;
+  color: #feca57;
+  animation: pulse 2s infinite;
+}
+
+.landing-title {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: #667eea;
+  margin-bottom: 0.5rem;
+}
+
+.landing-slogan {
+  font-size: 1.1rem;
+  color: #4a5568;
+  margin-bottom: 2rem;
+}
+
+.landing-auth-btn {
+  background: linear-gradient(90deg, #667eea, #feca57);
+  color: white;
+  font-size: 1.2rem;
+  font-weight: 700;
+  border: none;
+  border-radius: 1.5rem;
+  padding: 1rem 2.5rem;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.15);
+  transition: background 0.2s, transform 0.2s;
+}
+
+.landing-auth-btn:hover {
+  background: linear-gradient(90deg, #feca57, #667eea);
+  transform: translateY(-2px) scale(1.03);
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+} 
