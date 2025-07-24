@@ -1,9 +1,12 @@
 import dotenv from 'dotenv';
+import fetch from 'node-fetch';
 
 dotenv.config();
 
 // Gemini API Key
 const geminiApiKey = process.env.GEMINI_API_KEY;
+console.log('GEMINI_API_KEY loaded:', geminiApiKey ? 'OK' : 'MISSING');
+const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${geminiApiKey}`;
 
 // Aquí deberías implementar la integración real con Gemini AI
 // Por ahora, se deja como un placeholder para que completes con la librería oficial o fetch
@@ -86,52 +89,49 @@ Responde en formato JSON con la siguiente estructura:
       const systemPrompt = this.getSystemPrompt();
       const activityPrompt = this.getActivityPrompt(params);
 
-      // Aquí deberías llamar a la API de Gemini usando fetch o la librería oficial
-      // Ejemplo de placeholder:
-      const response = await fetch('https://api.gemini.google.com/v1/generate', {
+      // Llamada real a Gemini
+      const body = {
+        contents: [
+          {
+            parts: [
+              { text: `${systemPrompt}\n\n${activityPrompt}` }
+            ]
+          }
+        ]
+      };
+      const response = await fetch(GEMINI_API_URL, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${geminiApiKey}`
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          prompt: activityPrompt,
-          // ...otros parámetros según la API de Gemini
-        })
+        body: JSON.stringify(body)
       });
       const data: any = await response.json();
-      // Ajusta el parsing según la respuesta real de Gemini
-      if (!data || typeof data !== 'object' || !('result' in data) || typeof (data as any).result !== 'string') {
-        throw new Error('No se recibió respuesta de Gemini');
-      }
-      // Intentar parsear la respuesta JSON
+      console.log('Gemini API raw response:', data);
+      // Extraer el texto generado
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      // Intentar parsear como JSON si es posible
+      let parsedResponse: any = null;
       try {
-        const parsedResponse = JSON.parse((data as any).result);
-        return {
-          title: parsedResponse.title,
-          description: parsedResponse.description,
-          content: {
-            text: String((data as any).result),
-            instructions: "Lee el contenido y sigue las instrucciones del terapeuta",
-            expectedDuration: 10
-          },
-          tags: [params.type, params.difficulty, 'personalizado']
-        };
-      } catch (parseError) {
-        // Si falla el parsing JSON, crear una actividad básica
-        return {
-          title: `Actividad de ${params.type} para ${params.childName}`,
-          description: `Ejercicio personalizado de ${params.type} adaptado para ${params.childName}`,
-          content: {
-            text: data.result,
-            instructions: "Lee el contenido y sigue las instrucciones del terapeuta",
-            expectedDuration: 10
-          },
-          tags: [params.type, params.difficulty, 'personalizado']
-        };
+        parsedResponse = JSON.parse(text);
+      } catch {
+        // Si no es JSON, usar el texto como contenido
       }
-    } catch (error) {
+      return {
+        title: parsedResponse?.title || `Actividad de ${params.type} para ${params.childName}`,
+        description: parsedResponse?.description || `Ejercicio personalizado de ${params.type} adaptado para ${params.childName}`,
+        content: {
+          text: parsedResponse?.content?.text || text,
+          instructions: parsedResponse?.content?.instructions || 'Lee el contenido y sigue las instrucciones del terapeuta',
+          expectedDuration: parsedResponse?.content?.expectedDuration || 10
+        },
+        tags: parsedResponse?.tags || [params.type, params.difficulty, 'personalizado']
+      };
+    } catch (error: any) {
       console.error('Error generando actividad con Gemini:', error);
+      if (error && error.response && typeof error.response.text === 'function') {
+        error.response.text().then((t: any) => console.error('Gemini error response:', t));
+      }
       throw new Error('Error al generar actividad con Gemini');
     }
   }

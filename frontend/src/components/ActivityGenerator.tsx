@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { FaBrain, FaPlay, FaDownload, FaSpinner, FaMagic, FaChild, FaBook } from 'react-icons/fa';
 import { MdAccessibility, MdPsychology } from 'react-icons/md';
 import './ActivityGenerator.css';
@@ -12,16 +12,21 @@ interface Activity {
   difficulty: 'easy' | 'medium' | 'hard';
   ageGroup: '3-5' | '6-8' | '9-12';
   content: string;
-  createdAt: Date;
+  createdAt: string; // string ISO
 }
 
-const ActivityGenerator: React.FC = () => {
+interface ActivityGeneratorProps {
+  childId: string;
+}
+
+const ActivityGenerator: React.FC<ActivityGeneratorProps> = ({ childId }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [selectedWord, setSelectedWord] = useState('');
   const [selectedType, setSelectedType] = useState<'game' | 'exercise' | 'story'>('game');
   const [selectedAge, setSelectedAge] = useState<'3-5' | '6-8' | '9-12'>('6-8');
   const [selectedDifficulty, setSelectedDifficulty] = useState<'easy' | 'medium' | 'hard'>('easy');
+  const [error, setError] = useState<string | null>(null);
 
   // Palabras predefinidas para el contexto latinoamericano
   const commonWords = [
@@ -31,39 +36,31 @@ const ActivityGenerator: React.FC = () => {
 
   const generateActivity = async () => {
     if (!selectedWord.trim()) return;
-
     setIsGenerating(true);
-
-    // Construir prompt terapéutico personalizado
-    const prompt = `Genera una ${selectedType === 'game' ? 'actividad tipo juego' : selectedType === 'exercise' ? 'ejercicio terapéutico' : 'historia de 5 oraciones'} para un niño de ${selectedAge} años con síndrome de Down, nivel de dificultad ${selectedDifficulty}, usando la palabra "${selectedWord}". Usa frases simples, positivas y amigables.`;
-
+    setError(null);
     try {
-      const aiContent = await generateGeminiContent(prompt);
+      // Llama directamente a Gemini desde el frontend
+      const aiData = await generateGeminiContent({
+        word: selectedWord,
+        type: selectedType,
+        age: selectedAge,
+        difficulty: selectedDifficulty
+      });
       const newActivity: Activity = {
-        id: Date.now().toString(),
-        title: `Actividad con "${selectedWord}"`,
-        description: generateActivityDescription(selectedWord, selectedType, selectedAge, selectedDifficulty),
+        id: aiData.id || Date.now().toString(),
+        title: aiData.title || `Actividad con "${selectedWord}"`,
+        description: aiData.description || generateActivityDescription(selectedWord, selectedType, selectedAge, selectedDifficulty),
         type: selectedType,
         difficulty: selectedDifficulty,
         ageGroup: selectedAge,
-        content: aiContent,
-        createdAt: new Date()
+        content: aiData.content || '',
+        createdAt: new Date().toISOString() // string ISO
       };
       setActivities(prev => [newActivity, ...prev]);
-    } catch (error) {
-      const newActivity: Activity = {
-        id: Date.now().toString(),
-        title: `Actividad con "${selectedWord}"`,
-        description: generateActivityDescription(selectedWord, selectedType, selectedAge, selectedDifficulty),
-        type: selectedType,
-        difficulty: selectedDifficulty,
-        ageGroup: selectedAge,
-        content: 'Ocurrió un error al generar la actividad con IA.',
-        createdAt: new Date()
-      };
-      setActivities(prev => [newActivity, ...prev]);
-    } finally {
       setIsGenerating(false);
+    } catch (err) {
+      setIsGenerating(false);
+      setError('Error generando actividad con IA.');
     }
   };
 
@@ -103,18 +100,18 @@ Había una vez un ${word} muy especial que vivía en un lugar mágico. Este ${wo
   };
 
   const downloadActivity = (activity: Activity) => {
+    // Descargar el texto limpio y completo
     const content = `
-ACTIVIDAD: ${activity.title}
+TÍTULO: ${activity.title}
 DESCRIPCIÓN: ${activity.description}
 EDAD: ${activity.ageGroup} años
 DIFICULTAD: ${activity.difficulty}
 TIPO: ${activity.type}
 
-${activity.content}
+${typeof activity.content === 'string' ? activity.content : JSON.stringify(activity.content, null, 2)}
 
-Generado por SpeechDown - ${activity.createdAt.toLocaleDateString()}
+Generado por SpeechDown - ${new Date(activity.createdAt).toLocaleDateString()}
     `;
-    
     const blob = new Blob([content], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -123,6 +120,81 @@ Generado por SpeechDown - ${activity.createdAt.toLocaleDateString()}
     a.click();
     URL.revokeObjectURL(url);
   };
+
+  // Añadir función para leer en voz alta con pausa/reanudar
+  const synthRef = useRef(window.speechSynthesis);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+
+  function speak(text: string) {
+    if (synthRef.current.speaking) {
+      synthRef.current.cancel();
+    }
+    const utterance = new window.SpeechSynthesisUtterance(text);
+    utterance.lang = 'es-ES';
+    utterance.onend = () => setIsSpeaking(false);
+    synthRef.current.speak(utterance);
+    setIsSpeaking(true);
+    setIsPaused(false);
+  }
+
+  function pauseSpeech() {
+    if (synthRef.current.speaking && !synthRef.current.paused) {
+      synthRef.current.pause();
+      setIsPaused(true);
+    }
+  }
+
+  function resumeSpeech() {
+    if (synthRef.current.paused) {
+      synthRef.current.resume();
+      setIsPaused(false);
+    }
+  }
+
+  // Utilidad para limpiar texto de símbolos, emojis y markdown
+  function cleanText(text: string) {
+    return text
+      .replace(/\*\*/g, '') // quitar asteriscos markdown
+      .replace(/[:;=8][\-o\*\']?[\)\(\[\]dDpP\/\\OpP]/gi, '') // quitar caritas/emojis simples
+      .replace(/[\u{1F600}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '') // quitar emojis unicode
+      .replace(/[•\-\*\_\#\>\`\[\]\{\}\|]/g, '') // quitar otros símbolos
+      .replace(/\s{2,}/g, ' ') // espacios dobles
+      .replace(/\n+/g, ' ') // saltos de línea
+      .trim();
+  }
+
+  // Procesar el contenido para mostrarlo como cuento real
+  function renderStoryContent(content: any) {
+    if (Array.isArray(content)) {
+      return (
+        <div className="story-content">
+          {content.map((step: any, idx: number) => (
+            <p key={idx} style={{ marginBottom: 8 }}>
+              {step.instruction ? cleanText(step.instruction) : ''}
+              {step.action ? ' ' + cleanText(step.action) : ''}
+            </p>
+          ))}
+        </div>
+      );
+    }
+    // Si es string plano
+    return <p className="story-content">{cleanText(content)}</p>;
+  }
+
+  // Obtener texto plano para la voz
+  function getPlainTextForSpeech(content: any) {
+    if (Array.isArray(content)) {
+      return content.map((step: any) => `${step.instruction ? cleanText(step.instruction) : ''} ${step.action ? cleanText(step.action) : ''}`).join(' ');
+    }
+    return typeof content === 'string' ? cleanText(content) : '';
+  }
+
+  // Añadir función para obtener imagen de Unsplash
+  function getUnsplashImageUrl(word: string) {
+    // Unsplash permite hotlinking para pruebas, pero en producción deberías usar su API oficial
+    return `https://source.unsplash.com/400x250/?${encodeURIComponent(word)}`;
+  }
 
   return (
     <div className="activity-generator">
@@ -233,6 +305,7 @@ Generado por SpeechDown - ${activity.createdAt.toLocaleDateString()}
             </>
           )}
         </button>
+        {error && <p className="error-message">{error}</p>}
       </div>
 
       <div className="activities-list">
@@ -266,13 +339,45 @@ Generado por SpeechDown - ${activity.createdAt.toLocaleDateString()}
                 <p className="activity-description">{activity.description}</p>
                 
                 <div className="activity-content">
-                  <pre>{activity.content}</pre>
+                  {/* Imagen ilustrativa */}
+                  <img
+                    src={getUnsplashImageUrl(activity.title.split(' ')[activity.title.split(' ').length - 1] || activity.ageGroup)}
+                    alt={activity.title}
+                    className="activity-image"
+                    style={{ width: '100%', maxHeight: 200, objectFit: 'cover', borderRadius: 8, marginBottom: 8 }}
+                  />
+                  {renderStoryContent(activity.content)}
                 </div>
                 
                 <div className="activity-footer">
                   <span className="activity-date">
-                    {activity.createdAt.toLocaleDateString()}
+                    {activity.createdAt ? new Date(activity.createdAt).toLocaleDateString() : ''}
                   </span>
+                  {!isSpeaking ? (
+                    <button
+                      onClick={() => speak(getPlainTextForSpeech(activity.content))}
+                      className="tts-button"
+                      style={{ marginRight: 8 }}
+                    >
+                      🔊 Escuchar
+                    </button>
+                  ) : isPaused ? (
+                    <button
+                      onClick={resumeSpeech}
+                      className="tts-button"
+                      style={{ marginRight: 8 }}
+                    >
+                      ▶️ Reanudar
+                    </button>
+                  ) : (
+                    <button
+                      onClick={pauseSpeech}
+                      className="tts-button"
+                      style={{ marginRight: 8 }}
+                    >
+                      ⏸️ Pausar
+                    </button>
+                  )}
                   <button
                     onClick={() => downloadActivity(activity)}
                     className="download-button"

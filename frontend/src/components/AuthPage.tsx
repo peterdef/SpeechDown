@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { FaUser, FaEnvelope, FaLock, FaSignInAlt, FaUserPlus } from 'react-icons/fa';
 import './AuthPage.css';
+import { registerUser, loginUser } from '../services/api';
 
 interface AuthPageProps {
   onAuthSuccess: (user: { name: string; email: string }) => void;
@@ -15,10 +16,11 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess, onBack }) => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  const [role, setRole] = useState<'padre' | 'terapeuta'>('padre');
 
   const validateEmail = (email: string) => /\S+@\S+\.\S+/.test(email);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess('');
@@ -35,16 +37,23 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess, onBack }) => {
       return;
     }
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    try {
       if (mode === 'login') {
+        const res = await loginUser({ email, password });
+        localStorage.setItem('token', res.token);
         setSuccess('¡Bienvenido de nuevo!');
-        onAuthSuccess({ name: name || 'Usuario', email });
+        onAuthSuccess({ name: res.user.name, email: res.user.email });
       } else {
+        const res = await registerUser({ name, email, password, role });
+        localStorage.setItem('token', res.token);
         setSuccess('¡Registro exitoso!');
-        onAuthSuccess({ name, email });
+        onAuthSuccess({ name: res.user.name, email: res.user.email });
       }
-    }, 1200);
+    } catch (err: any) {
+      setError(err.message || 'Error de autenticación');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -75,6 +84,15 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess, onBack }) => {
                 onChange={e => setName(e.target.value)}
                 autoFocus
               />
+            </div>
+          )}
+          {mode === 'register' && (
+            <div className="input-group">
+              <label>Rol:</label>
+              <select value={role} onChange={e => setRole(e.target.value as 'padre' | 'terapeuta')}>
+                <option value="padre">Padre</option>
+                <option value="terapeuta">Terapeuta</option>
+              </select>
             </div>
           )}
           <div className="input-group">

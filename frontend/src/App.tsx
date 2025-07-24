@@ -1,21 +1,113 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './App.css';
 import { FaBrain, FaChartLine, FaBookOpen, FaHeart, FaStar, FaUsers, FaBars, FaTimes } from 'react-icons/fa';
 import { MdAccessibility, MdPsychology } from 'react-icons/md';
 import ActivityGenerator from './components/ActivityGenerator';
 import ProgressPanel from './components/ProgressPanel';
 import ResourceLibrary from './components/ResourceLibrary';
+import AuthPage from './components/AuthPage';
+import ChildForm from './components/ChildForm';
+import { getChildren } from './services/api';
 
 type ActiveModule = 'home' | 'generator' | 'progress' | 'library';
 
 function App() {
   const [activeModule, setActiveModule] = useState<ActiveModule>('home');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [user, setUser] = useState<{ name: string; email: string } | null>(() => {
+    return localStorage.getItem('token') ? { name: '', email: '' } : null;
+  });
+  const [children, setChildren] = useState<any[]>([]);
+  const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
+  const [loadingChildren, setLoadingChildren] = useState(false);
+  const [showChildForm, setShowChildForm] = useState(false);
+
+  // Cerrar sesión
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    setUser(null);
+    setChildren([]);
+    setSelectedChildId(null);
+    setActiveModule('home');
+  };
+
+  // Consultar niños tras login
+  useEffect(() => {
+    const fetchChildren = async () => {
+      if (user && localStorage.getItem('token')) {
+        setLoadingChildren(true);
+        try {
+          const token = localStorage.getItem('token') || '';
+          const res = await getChildren(token);
+          const childArr = Array.isArray(res) ? res : (res.children || []);
+          setChildren(childArr);
+          if (childArr.length > 0) setSelectedChildId(childArr[0]._id || childArr[0].id);
+        } catch {
+          setChildren([]);
+        } finally {
+          setLoadingChildren(false);
+        }
+      }
+    };
+    fetchChildren();
+  }, [user]);
+
+  // Si no hay token, mostrar AuthPage
+  if (!localStorage.getItem('token') || !user) {
+    return (
+      <AuthPage
+        onAuthSuccess={(u) => setUser(u)}
+        onBack={() => setActiveModule('home')}
+      />
+    );
+  }
+
+  // Si no hay niños, mostrar ChildForm
+  if (!loadingChildren && (children.length === 0 || showChildForm)) {
+    return <ChildForm onChildCreated={async () => {
+      setShowChildForm(false);
+      setLoadingChildren(true);
+      try {
+        const token = localStorage.getItem('token') || '';
+        const res = await getChildren(token);
+        const childArr = Array.isArray(res) ? res : (res.children || []);
+        setChildren(childArr);
+        if (childArr.length > 0) setSelectedChildId(childArr[childArr.length - 1]._id || childArr[childArr.length - 1].id);
+      } catch {
+        setChildren([]);
+      } finally {
+        setLoadingChildren(false);
+      }
+    }} onCancel={() => setShowChildForm(false)} />;
+  }
+
+  // Permitir seleccionar niño si hay varios y botón para agregar niño
+  const childSelector = (
+    <div className="child-selector">
+      {children.length > 0 && (
+        <>
+          <label>Niño:</label>
+          <select value={selectedChildId || ''} onChange={e => setSelectedChildId(e.target.value)}>
+            {children
+              .filter(child => child._id) // Solo niños reales
+              .map(child => (
+                <option key={child._id} value={child._id}>
+                  {child.name} ({child.age} años)
+                </option>
+              ))}
+          </select>
+          <button onClick={() => setShowChildForm(true)} style={{ marginLeft: 8 }}>
+            + Agregar niño
+          </button>
+        </>
+      )}
+    </div>
+  );
 
   const renderModule = () => {
     switch (activeModule) {
       case 'generator':
-        return <ActivityGenerator />;
+        return selectedChildId ? <ActivityGenerator childId={selectedChildId} /> : <div>Selecciona un niño para generar actividades.</div>;
       case 'progress':
         return <ProgressPanel />;
       case 'library':
@@ -288,6 +380,14 @@ function App() {
               <FaBookOpen />
               Biblioteca
             </button>
+            {/* Botón de cerrar sesión */}
+            <button
+              className="nav-item logout"
+              onClick={handleLogout}
+              style={{ marginLeft: '1rem', color: '#f87171' }}
+            >
+              Cerrar sesión
+            </button>
           </div>
           
           <button
@@ -301,6 +401,7 @@ function App() {
 
       {/* Main Content */}
       <main className="main-content">
+        {childSelector}
         {renderModule()}
       </main>
     </div>

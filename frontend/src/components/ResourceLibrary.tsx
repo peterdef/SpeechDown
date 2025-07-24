@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FaBookOpen, FaDownload, FaSearch, FaFilter, FaStar, FaEye, FaHeart, FaShare, FaFilePdf, FaFileWord, FaFileImage, FaFileAudio } from 'react-icons/fa';
 import { MdAccessibility, MdPsychology } from 'react-icons/md';
 import './ResourceLibrary.css';
+import { getActivities } from '../services/api';
 
 interface Resource {
   id: string;
@@ -21,8 +22,49 @@ interface Resource {
   language: 'español' | 'inglés' | 'portugués';
 }
 
+// Datos quemados de ejemplo
+const MOCK_RESOURCES = [
+  {
+    id: 'demo-1',
+    title: 'Cuento de la R',
+    description: 'Practicar la R con un cuento',
+    category: 'historias',
+    type: 'pdf',
+    difficulty: 'easy',
+    ageGroup: '6-8',
+    downloads: 12,
+    rating: 4.5,
+    views: 100,
+    favorites: 10,
+    createdAt: new Date().toISOString(),
+    tags: ['cuento', 'R'],
+    size: '1MB',
+    language: 'español',
+    content: 'Había una vez un ratón llamado Ramón...'
+  },
+  {
+    id: 'demo-2',
+    title: 'Juego de Palabras',
+    description: 'Juego para aprender palabras nuevas',
+    category: 'juegos',
+    type: 'pdf',
+    difficulty: 'medium',
+    ageGroup: '9-12',
+    downloads: 8,
+    rating: 4.2,
+    views: 80,
+    favorites: 7,
+    createdAt: new Date().toISOString(),
+    tags: ['juego', 'palabras'],
+    size: '1MB',
+    language: 'español',
+    content: 'Busca palabras que empiecen con la letra P...'
+  }
+];
+
 const ResourceLibrary: React.FC = () => {
-  const [resources, setResources] = useState<Resource[]>([]);
+  // Mostrar recursos generados en tiempo real si existen (usando localStorage como ejemplo simple)
+  const [resources, setResources] = useState<any[]>([]);
   const [filteredResources, setFilteredResources] = useState<Resource[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -34,113 +76,22 @@ const ResourceLibrary: React.FC = () => {
 
   // Datos simulados de recursos
   useEffect(() => {
-    const mockResources: Resource[] = [
-      {
-        id: '1',
-        title: 'Ejercicios de Pronunciación - Nivel Básico',
-        description: 'Colección de ejercicios para mejorar la pronunciación de sílabas directas y palabras simples.',
-        category: 'ejercicios',
-        type: 'pdf',
-        difficulty: 'easy',
-        ageGroup: '3-5',
-        downloads: 245,
-        rating: 4.8,
-        views: 1200,
-        favorites: 89,
-        createdAt: new Date('2024-01-15'),
-        tags: ['pronunciación', 'sílabas', 'básico'],
-        size: '2.3 MB',
-        language: 'español'
-      },
-      {
-        id: '2',
-        title: 'Historias Interactivas para Niños',
-        description: 'Cuentos cortos con actividades interactivas para desarrollar el vocabulario y la comprensión.',
-        category: 'historias',
-        type: 'word',
-        difficulty: 'medium',
-        ageGroup: '6-8',
-        downloads: 189,
-        rating: 4.6,
-        views: 890,
-        favorites: 67,
-        createdAt: new Date('2024-01-20'),
-        tags: ['historias', 'vocabulario', 'comprensión'],
-        size: '1.8 MB',
-        language: 'español'
-      },
-      {
-        id: '3',
-        title: 'Juegos de Memoria Auditiva',
-        description: 'Juegos para mejorar la memoria auditiva y la discriminación de sonidos.',
-        category: 'juegos',
-        type: 'audio',
-        difficulty: 'medium',
-        ageGroup: '6-8',
-        downloads: 312,
-        rating: 4.9,
-        views: 1500,
-        favorites: 123,
-        createdAt: new Date('2024-01-25'),
-        tags: ['memoria', 'auditiva', 'sonidos'],
-        size: '15.2 MB',
-        language: 'español'
-      },
-      {
-        id: '4',
-        title: 'Materiales Visuales para Terapia',
-        description: 'Imágenes y láminas para trabajar la identificación de objetos y acciones.',
-        category: 'materiales',
-        type: 'image',
-        difficulty: 'easy',
-        ageGroup: '3-5',
-        downloads: 178,
-        rating: 4.4,
-        views: 756,
-        favorites: 45,
-        createdAt: new Date('2024-01-30'),
-        tags: ['visual', 'objetos', 'acciones'],
-        size: '8.7 MB',
-        language: 'español'
-      },
-      {
-        id: '5',
-        title: 'Videos de Ejercicios Respiratorios',
-        description: 'Videos guiados para ejercicios de respiración que mejoran el control vocal.',
-        category: 'videos',
-        type: 'video',
-        difficulty: 'hard',
-        ageGroup: '9-12',
-        downloads: 156,
-        rating: 4.7,
-        views: 2340,
-        favorites: 98,
-        createdAt: new Date('2024-02-01'),
-        tags: ['respiración', 'vocal', 'control'],
-        size: '45.3 MB',
-        language: 'español'
-      },
-      {
-        id: '6',
-        title: 'Actividades de Fluidez Verbal',
-        description: 'Ejercicios específicos para mejorar la fluidez en el habla espontánea.',
-        category: 'ejercicios',
-        type: 'pdf',
-        difficulty: 'hard',
-        ageGroup: '9-12',
-        downloads: 203,
-        rating: 4.5,
-        views: 1100,
-        favorites: 76,
-        createdAt: new Date('2024-02-05'),
-        tags: ['fluidez', 'habla', 'espontánea'],
-        size: '3.1 MB',
-        language: 'español'
-      }
-    ];
-    
-    setResources(mockResources);
-    setFilteredResources(mockResources);
+    // Intentar cargar recursos generados por el usuario
+    let generated = [];
+    try {
+      generated = JSON.parse(localStorage.getItem('generatedActivities') || '[]');
+    } catch {
+      generated = [];
+    }
+    // Validar recursos y asegurar que tengan los campos requeridos
+    const validResources = Array.isArray(generated)
+      ? generated.filter(r => r && r.title && r.description && r.tags && Array.isArray(r.tags))
+      : [];
+    if (validResources.length > 0) {
+      setResources(validResources);
+    } else {
+      setResources(MOCK_RESOURCES);
+    }
   }, []);
 
   // Filtrado y búsqueda
@@ -152,7 +103,7 @@ const ResourceLibrary: React.FC = () => {
       filtered = filtered.filter(resource =>
         resource.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         resource.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        resource.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
+        (Array.isArray(resource.tags) && resource.tags.some((tag: string) => tag.toLowerCase().includes(searchTerm.toLowerCase())))
       );
     }
 
@@ -187,11 +138,16 @@ const ResourceLibrary: React.FC = () => {
           return a.title.localeCompare(b.title);
         case 'date':
         default:
-          return b.createdAt.getTime() - a.createdAt.getTime();
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       }
     });
 
-    setFilteredResources(filtered);
+    // Si el filtrado deja el array vacío, mostrar los de ejemplo
+    if (filtered.length === 0) {
+      setFilteredResources(MOCK_RESOURCES);
+    } else {
+      setFilteredResources(filtered);
+    }
   }, [resources, searchTerm, selectedCategory, selectedDifficulty, selectedAge, selectedLanguage, sortBy]);
 
   const getTypeIcon = (type: string) => {
@@ -496,7 +452,7 @@ Descargado desde SpeechDown - ${new Date().toLocaleDateString()}
                   <div className="resource-info">
                     <span className="resource-size">{resource.size}</span>
                     <span className="resource-date">
-                      {resource.createdAt.toLocaleDateString()}
+                      {resource.createdAt ? new Date(resource.createdAt).toLocaleDateString() : ''}
                     </span>
                   </div>
                   <button

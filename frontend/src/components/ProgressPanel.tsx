@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FaChartLine, FaTrophy, FaCalendar, FaStar, FaArrowUp, FaArrowDown } from 'react-icons/fa';
 import { MdAccessibility, MdPsychology } from 'react-icons/md';
 import './ProgressPanel.css';
+import { getProgress } from '../services/api';
 
 interface ProgressData {
   date: string;
@@ -21,6 +22,14 @@ interface Goal {
   category: 'pronunciation' | 'vocabulary' | 'fluency' | 'confidence';
 }
 
+const MOCK_PROGRESS = [
+  { date: '2024-07-01', pronunciation: 80, vocabulary: 10, fluency: 70, confidence: 85 },
+  { date: '2024-07-02', pronunciation: 82, vocabulary: 12, fluency: 72, confidence: 87 },
+  { date: '2024-07-03', pronunciation: 85, vocabulary: 14, fluency: 75, confidence: 90 },
+  { date: '2024-07-04', pronunciation: 88, vocabulary: 15, fluency: 78, confidence: 92 },
+  { date: '2024-07-05', pronunciation: 90, vocabulary: 16, fluency: 80, confidence: 95 }
+];
+
 const ProgressPanel: React.FC = () => {
   const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'quarter'>('month');
   const [progressData, setProgressData] = useState<ProgressData[]>([]);
@@ -29,36 +38,9 @@ const ProgressPanel: React.FC = () => {
 
   // Datos simulados de progreso
   useEffect(() => {
-    const generateProgressData = () => {
-      const data: ProgressData[] = [];
-      const periods = {
-        week: 7,
-        month: 30,
-        quarter: 90
-      };
-      
-      const days = periods[selectedPeriod];
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - days);
-      
-      for (let i = 0; i < days; i++) {
-        const date = new Date(startDate);
-        date.setDate(date.getDate() + i);
-        
-        data.push({
-          date: date.toISOString().split('T')[0],
-          pronunciation: Math.floor(Math.random() * 30) + 70,
-          vocabulary: Math.floor(Math.random() * 25) + 75,
-          fluency: Math.floor(Math.random() * 35) + 65,
-          confidence: Math.floor(Math.random() * 40) + 60
-        });
-      }
-      
-      setProgressData(data);
-    };
-
-    generateProgressData();
-  }, [selectedPeriod]);
+    // Mostrar datos mock siempre
+    setProgressData(MOCK_PROGRESS);
+  }, []);
 
   // Metas simuladas
   useEffect(() => {

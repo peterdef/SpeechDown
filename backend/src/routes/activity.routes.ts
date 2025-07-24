@@ -36,7 +36,7 @@ router.put('/:id', updateActivity);
 router.delete('/:id', deleteActivity);
 
 // Rutas para generación con IA
-router.post('/generate-ai', generateActivityWithAI);
+router.post('/generate-ai', authenticateToken, generateActivityWithAI);
 router.post('/generate-multiple', generateMultipleActivities);
 
 // Rutas para progreso y audio
